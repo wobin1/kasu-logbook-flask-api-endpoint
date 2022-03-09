@@ -4,8 +4,10 @@ import jwt
 import datetime
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 app.config['SECRET_KEY'] = "thisismysecretkey"
 
 
@@ -67,14 +69,16 @@ def login():
 		email = request.json['email']
 		password = request.json['password']
 
-		query = "SELECT email, password FROM users WHERE email = %s"
+		query = "SELECT email, password, user_id FROM users WHERE email = %s"
 		bind = (email,)
 
 		cursor.execute(query, bind)
 		row = cursor.fetchone()
+		# print(row)
 		
 		_email = row[0]
 		_password = row[1]
+
 
 		confirm_password = check_password_hash(_password, password)
 
@@ -88,6 +92,7 @@ def login():
 
 
 @app.route("/student-particulars", methods=["POST"])
+@token_reguired
 def student_particulars():
 	conn = connection()
 	cursor = conn.cursor()
@@ -104,6 +109,7 @@ def student_particulars():
 		account_name = request.json['account_name']
 		bank_name = request.json['bank_name']
 		bank_account_no = request.json['bank_account_no']
+		bank_sort_code = request.json['bank_account_no']
 		name_of_establishment = request.json['name_of_establishment']
 		address_of_establishment = request.json['address_of_establishment']
 		period_of_attachment = request.json['period_of_attachment']
@@ -113,12 +119,12 @@ def student_particulars():
 		
 
 		query = """INSERT INTO student_particulars(name, user_id, department, reg_number, email, course_of_study, course_duration, phone_number, 
-													pg_phoneNumber, account_name, bank_name, bank_account_no, 
+													pg_phoneNumber, account_name, bank_name, bank_sort_code, bank_account_no, 
 													name_of_establishment, address_of_establishment, period_of_attachment, 
 													industry_supervisor_name, industry_supervisor_email, industry_supervisor_phoneNumbers)VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
 		bind = (name, user_id, department, reg_number, email, course_of_study, 
 					course_duration, phone_number, p_g_phoneNumber, 
-					account_name, bank_name, bank_account_no, name_of_establishment,
+					account_name, bank_name, bank_sort_code, bank_account_no, name_of_establishment,
 					address_of_establishment, period_of_attachment,
 					industry_supervisor_name)
 
@@ -128,8 +134,60 @@ def student_particulars():
 
 		return {"response": "Student particulars added successfully"}
 
+@app.route("/get_student_particulars", methods=["POST"])
+@token_reguired
+def getParticulars():
+	conn = connection()
+	cursor = conn.cursor()
+
+	student_id =request.json["student_id"]
+
+	query = "SELECT * FROM student_particulars WHERE user_id=%s"
+	bind = (student_id,)
+
+	cursor.execute(query, bind)
+	rows = cursor.fetchall()
+	conn.close()
+
+	student_particulars = []
+
+	for row in rows:
+		print(row)
+		particulars = {"particular_id": row[0], "user_id": row[1], "name": row[2], "department": row[3], 
+						"reg_number": row[4], "course_of_study": row[5], "course_duration": row[6], 
+						"phone_number": row[7], "email": row[8], "p_g_phoneNumber":row[9], "account_name": row[10], 
+						"bank_name": row[11], "bank_account_no": row[12], "name_of_establishment": row[13], 
+						"address_of_establishment": row[14], "period_of_attachment": row[15], 
+						"industry_supervisor_name": row[16], "industry_supervisor_email": row[17], 
+						"industry_supervisor_phoneNumber": row[18], "updated_particulars": row[19], 
+						"bank_sort_code": row[20]
+
+						}
+		student_particulars.append(particulars)
+
+	return jsonify(student_particulars)
+
+@app.route("/get_current_user_id",methods=["POST"])
+@token_reguired
+def getCurrentUser():
+	conn = connection()
+	cursor = conn.cursor()
+
+	email = request.json['email']
+
+	query = "SELECT user_id FROM users WHERE email = %s"
+	bind = (email,)
+
+	cursor.execute(query, bind)
+	row = cursor.fetchall()
+	print(row)
+	conn.close()
+
+	return {"current_user":row[0][0]}
+
 
 @app.route("/progress-report", methods=["POST"])
+@token_reguired
 def report():
 	conn = connection()
 	cursor = conn.cursor()
@@ -154,6 +212,7 @@ def report():
 
 
 @app.route("/create-school-supervisors", methods=["POST"])
+@token_reguired
 def school_supervisors():
 	conn = connection()
 	cursor = conn.cursor()
@@ -175,6 +234,7 @@ def school_supervisors():
 
 
 @app.route("/create-industry-supervisor")
+@token_reguired
 def insutrial_supervisor():
 	conn = connection()
 	cursor = conn.cursor()
