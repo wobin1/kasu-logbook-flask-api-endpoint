@@ -1,14 +1,22 @@
 from flask import Flask, request, json, jsonify 
 import psycopg2
+import os
 import jwt
 import datetime
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 from flask_cors import CORS
+
+
+UPLOAD_FOLDER = 'diagram'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 
 app = Flask(__name__)
 CORS(app)
-app.config['SECRET_KEY'] = "thisismysecretkey"
+app.config['UPLOAD_FOLDER']= UPLOAD_FOLDER
+app.config["SECRET_KEY"] = "thisisasecretkey" 
+app.config['MAX_CONTENT_LENGTH'] = 4 * 1000 * 1000
 
 
 def connection():
@@ -60,14 +68,20 @@ def create_user():
 
 			return {"response": "User added successfully"}
 
+
+
 @app.route("/login", methods=["POST"])
 def login():
 	conn = connection()
 	cursor = conn.cursor()
 
+
+
 	if request.method == "POST":
 		email = request.json['email']
 		password = request.json['password']
+		
+
 
 		query = "SELECT email, password, user_id FROM users WHERE email = %s"
 		bind = (email,)
@@ -75,6 +89,7 @@ def login():
 		cursor.execute(query, bind)
 		row = cursor.fetchone()
 		# print(row)
+
 		
 		_email = row[0]
 		_password = row[1]
@@ -83,12 +98,11 @@ def login():
 		confirm_password = check_password_hash(_password, password)
 
 		if confirm_password:
-			token = jwt.encode({'user': _email, 'exp': datetime.datetime.now() + datetime.timedelta(seconds = 20)}, app.config["SECRET_KEY"], algorithm="HS256")
-
+			token = jwt.encode({'user': "test@gmail.com", 'exp':'datetime.datetime.now() + datetime.timedelta(seconds = 20)'}, app.config["SECRET_KEY"], algorithm="HS256")
 			return {"token": token}
 
-		else:
-			return {"response": "password incorrect please input a valid password"}
+		# else:
+		# 	return {"response": "password incorrect please input a valid password"}
 
 
 @app.route("/student-particulars", methods=["POST"])
@@ -135,7 +149,7 @@ def student_particulars():
 		return {"response": "Student particulars added successfully"}
 
 @app.route("/get_student_particulars", methods=["POST"])
-@token_reguired
+# @token_reguired
 def getParticulars():
 	conn = connection()
 	cursor = conn.cursor()
@@ -187,7 +201,7 @@ def getCurrentUser():
 
 
 @app.route("/progress-report", methods=["POST"])
-@token_reguired
+# @token_reguired
 def report():
 	conn = connection()
 	cursor = conn.cursor()
@@ -195,20 +209,93 @@ def report():
 	user_id = request.json['user_id']
 	week_day= request.json['week_day']
 	weekending = request.json['weekending_date']
-	report = request.json['progress-report']
+	report = request.json['progress_report']
 	student_signature = request.json['student_signature']
 	date_submitted = datetime.datetime.now()
 	comment_industrial_based_supervisor = request.json['industry_supervisor_comment']
 	name_of_industrial_based_supervisor = request.json['industry_supervisor_name']
+
+
 
 	query = "INSERT INTO report(user_id, day, report, student_signature, weekending, date_submitted, comment_industrial_based_supervisor, name_of_industrial_based_supervisor)VALUES(%s, %s, %s, %s, %s, %s, %s, %s)"
 	bind = (user_id, week_day, report, student_signature, weekending, date_submitted, comment_industrial_based_supervisor, name_of_industrial_based_supervisor)
 
 	cursor.execute(query, bind)
 	conn.commit()
+	row.cursor.fetchall()
 	conn.close()
 
-	return {"reponse": "report submitted successfully"}
+	return {"reponse": row[0]}
+
+
+@app.route("/get-reports")
+def getReport():
+	conn = connection()
+	cursor = conn.cursor()
+
+	query = "SELECT weekending FROM report"
+
+	cursor.execute(query)
+	row = cursor.fetchall()
+	conn.close()
+	date = row
+
+	reportDate = []
+
+	for row in date:
+		datetime = {"weekend":row[0]}
+
+		reportDate.append(datetime)
+
+	return jsonify(reportDate)
+
+@app.route("/update-daigram-path", methods=["POST"])
+def updateDaigramPath():
+	conn = connection()
+	cursor = conn.cursor()
+
+	file = request.json['path']
+	date = request.json['reportDate']
+
+
+	query = "UPDATE report SET diagram = %s WHERE weekending = %s"
+	bind = (file, date)
+
+	cursor.execute(query, bind)
+	conn.commit()
+	conn.close
+
+	return jsonify("diagram path saved successfully")
+
+
+
+
+
+
+
+
+def allowed_file(filename):
+	return '.' in filename and \
+			filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route('/file_uploads', methods=['GET', 'POST'])
+def upload_file():
+	if request.method== 'POST':
+		print("beginning")
+		# checking if the post request has the file path
+		if 'file' not in request.files:
+			return "No file path found"
+		file = request.files['file']
+	
+		# making sure user does not submit an empty file without a filename
+		if file.filename == '':
+			return "No file selected"
+		if file and allowed_file(file.filename):
+			filename = secure_filename(file.filename)
+			file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+			print(filename)
+		
+			return jsonify({"uploaded_file": filename})
 
 
 @app.route("/create-school-supervisors", methods=["POST"])
@@ -235,7 +322,7 @@ def school_supervisors():
 
 @app.route("/create-industry-supervisor")
 @token_reguired
-def insutrial_supervisor():
+def industrial_supervisor():
 	conn = connection()
 	cursor = conn.cursor()
 
@@ -256,6 +343,7 @@ def insutrial_supervisor():
 
 
 
+	
 
 
 if __name__ == "__main__":
