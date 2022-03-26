@@ -7,6 +7,8 @@ from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from flask_cors import CORS
+import uuid
+import psycopg2.extras
 
 
 UPLOAD_FOLDER = 'diagram'
@@ -339,6 +341,28 @@ def industrial_supervisor():
 	conn.close()
 
 	return {"response": "successfully added an industrial based supervisor"}
+
+
+@app.route("/generate-code")
+def generatePaymentCode():
+	conn = connection()
+	cursor = conn.cursor()
+
+	psycopg2.extras.register_uuid()
+
+	code = uuid.uuid4()
+
+	query = "INSERT INTO registration_code(code)VALUES(%s)"
+	bind = (code,)
+
+	cursor.execute(query, bind)
+	conn.commit()
+	conn.close()
+
+	return "successfully generated code and saved in the database"
+
+
+
 	
 
 

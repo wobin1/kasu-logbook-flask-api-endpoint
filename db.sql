@@ -65,3 +65,8 @@ CREATE TABLE industry_supervisor(
 
 )
 
+CREATE TABLE registration_code(
+	code_id serial PRIMARY KEY,
+	code VARCHAR(200)
+)
+
