@@ -363,7 +363,27 @@ def generatePaymentCode():
 
 
 
-	
+@app.route("/payment-callback", methods=["POST"])
+def callback():
+	conn = connection()
+	cursor = conn.cursor()
+
+	status = request.json['status']
+	message = request.json['message']
+	trace_id = request.json['trace_id']
+	reference_id = request.json['reference_id']
+	url = request.json['url']
+
+	response = []
+
+	responseData = {"status": status, "message": message, "trace_id": trace_id, "reference_id": reference_id, "url": url}
+
+	response.append(responseData)
+	print(response)
+
+	return jsonify(response)
+
+
 
 
 
